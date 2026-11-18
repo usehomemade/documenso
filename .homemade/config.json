@@ -1,0 +1,68 @@
+{
+  "$schema": "https://homemade.dev/schemas/latest/config.json",
+  "warmup": [
+    "npm24 ci"
+  ],
+  "install": [
+    "npm24 ci",
+    "node24 -e 'const fs = require(\"node:fs\"); const aliases = { NEXT_PRIVATE_DATABASE_URL: \"DATABASE_URL\", NEXT_PRIVATE_DIRECT_DATABASE_URL: \"DATABASE_URL\", NEXT_PRIVATE_SMTP_HOST: \"SMTP_HOST\", NEXT_PRIVATE_SMTP_PORT: \"SMTP_PORT\", NEXT_PRIVATE_SMTP_FROM_NAME: \"SMTP_FROM_NAME\", NEXT_PRIVATE_SMTP_FROM_ADDRESS: \"SMTP_FROM_ADDRESS\" }; const settings = Object.entries(aliases).map(([target, source]) => { const value = process.env[target] ?? process.env[source]; if (!value) { throw new Error(`Missing environment variable: ${source}`); } return `${target}=${JSON.stringify(value)}`; }); fs.writeFileSync(\".env.local\", settings.join(\"\\n\") + \"\\n\", { mode: 0o600 });'",
+    "npm24 run prisma:generate",
+    "npm24 run translate:compile"
+  ],
+  "services": {
+    "database": {
+      "cmd": "docker compose -f docker/development/compose.yml up --no-deps database",
+      "port": 54320,
+      "displayName": "PostgreSQL",
+      "order": 1
+    },
+    "mail": {
+      "cmd": "docker compose -f docker/development/compose.yml up --no-deps inbucket",
+      "port": 9000,
+      "url": true,
+      "healthcheck": {
+        "path": "/"
+      },
+      "displayName": "Email inbox",
+      "order": 2
+    },
+    "web": {
+      "cmd": "timeout 180 sh -c 'until docker compose -f docker/development/compose.yml exec -T database pg_isready -h 127.0.0.1 -U documenso -d documenso -q; do sleep 1; done' && npm24 run prisma:migrate-deploy && exec npm24 run dev -w @documenso/remix -- --host 0.0.0.0 --port \"$PORT\"",
+      "port": 3000,
+      "url": true,
+      "healthcheck": {
+        "path": "/"
+      },
+      "displayName": "Documenso",
+      "order": 0
+    }
+  },
+  "env_schema": [
+    {
+      "key": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD",
+      "warmup": true
+    },
+    {
+      "key": "HUSKY",
+      "warmup": true
+    },
+    "DATABASE_URL",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_FROM_NAME",
+    "SMTP_FROM_ADDRESS",
+    "NEXT_PRIVATE_DATABASE_URL",
+    "NEXT_PRIVATE_DIRECT_DATABASE_URL",
+    "NEXT_PRIVATE_SMTP_HOST",
+    "NEXT_PRIVATE_SMTP_PORT",
+    "NEXT_PRIVATE_SMTP_FROM_NAME",
+    "NEXT_PRIVATE_SMTP_FROM_ADDRESS",
+    "NEXT_PUBLIC_WEBAPP_URL",
+    "NEXTAUTH_SECRET",
+    "NEXT_PRIVATE_ENCRYPTION_KEY",
+    "NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY",
+    "NEXT_PUBLIC_UPLOAD_TRANSPORT",
+    "DOCUMENSO_DISABLE_TELEMETRY",
+    "__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS"
+  ]
+}
